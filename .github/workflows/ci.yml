@@ -51,7 +51,9 @@ jobs:
         run: dotnet format --verify-no-changes --no-restore
 
       - name: Unit tests
-        run: dotnet test --project tests/PubSub.Filters.Tests/PubSub.Filters.Tests.csproj --configuration Release --no-build
+        run: |
+          dotnet test --project tests/PubSub.Filters.Tests/PubSub.Filters.Tests.csproj --configuration Release --no-build
+          dotnet test --project tests/PubSub.Client.Tests/PubSub.Client.Tests.csproj --configuration Release --no-build
 
       # The integration and end-to-end suites start SQL Server through Testcontainers, so they
       # need a working Docker daemon rather than a service container: each test class manages its
