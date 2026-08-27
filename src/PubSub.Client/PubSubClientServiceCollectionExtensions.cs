@@ -42,7 +42,6 @@ public static class PubSubClientServiceCollectionExtensions
     private static IServiceCollection AddPubSubClientCore(this IServiceCollection services)
     {
         services.TryAddSingleton<MessageTypeRegistry>();
-        services.TryAddSingleton<HandlerRegistry>();
         services.TryAddSingleton<MessageDispatcher>();
         services.TryAddSingleton<IEventPublisher, EventPublisher>();
 
@@ -85,31 +84,6 @@ public static class PubSubClientServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a handler for a payload type, and maps that type to a subject.
-    /// </summary>
-    /// <remarks>
-    /// Publishing and consuming share one subject map, so a producer and consumer that both call
-    /// this for the same type cannot disagree about the subject.
-    /// </remarks>
-    public static IServiceCollection AddMessageHandler<TMessage, THandler>(
-        this IServiceCollection services,
-        string? subject = null)
-        where THandler : class, IMessageHandler<TMessage>
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.TryAddScoped<THandler>();
-
-        services.AddSingleton<IConfigureHandlers>(
-            new ConfigureHandlers(registry => registry.Add<TMessage, THandler>(subject)));
-
-        services.AddSingleton<IConfigureMessageTypes>(
-            new ConfigureMessageTypes(registry => registry.Register<TMessage>(subject)));
-
-        return services;
-    }
-
-    /// <summary>
     /// Runs a processor for one subscription as a hosted service.
     /// </summary>
     /// <remarks>
@@ -131,7 +105,14 @@ public static class PubSubClientServiceCollectionExtensions
             ArgumentException.ThrowIfNullOrWhiteSpace(options.Topic, nameof(options.Topic));
             ArgumentException.ThrowIfNullOrWhiteSpace(options.Subscription, nameof(options.Subscription));
 
-            ApplyRegistrations(provider);
+            ApplyMessageTypes(provider);
+
+            if (options.Handlers.Subjects.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"The processor for '{options.Topic}/{options.Subscription}' has no handlers. " +
+                    "Register at least one with options.Handlers.Add<TMessage, THandler>().");
+            }
 
             MessageProcessor processor = new(
                 provider.GetRequiredService<BrokerHttpClient>(),
@@ -162,7 +143,14 @@ public static class PubSubClientServiceCollectionExtensions
             ArgumentException.ThrowIfNullOrWhiteSpace(options.Topic, nameof(options.Topic));
             ArgumentException.ThrowIfNullOrWhiteSpace(options.Subscription, nameof(options.Subscription));
 
-            ApplyRegistrations(provider);
+            ApplyMessageTypes(provider);
+
+            if (options.Handlers.Subjects.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"The session processor for '{options.Topic}/{options.Subscription}' has no " +
+                    "handlers. Register at least one with options.Handlers.Add<TMessage, THandler>().");
+            }
 
             SessionProcessor processor = new(
                 provider.GetRequiredService<BrokerHttpClient>(),
@@ -177,14 +165,8 @@ public static class PubSubClientServiceCollectionExtensions
         return services;
     }
 
-    private static void ApplyRegistrations(IServiceProvider provider)
+    private static void ApplyMessageTypes(IServiceProvider provider)
     {
-        HandlerRegistry handlers = provider.GetRequiredService<HandlerRegistry>();
-        foreach (IConfigureHandlers configure in provider.GetServices<IConfigureHandlers>())
-        {
-            configure.Apply(handlers);
-        }
-
         MessageTypeRegistry types = provider.GetRequiredService<MessageTypeRegistry>();
         foreach (IConfigureMessageTypes configure in provider.GetServices<IConfigureMessageTypes>())
         {
@@ -193,27 +175,11 @@ public static class PubSubClientServiceCollectionExtensions
     }
 }
 
-/// <summary>Applies a handler registration to the shared registry.</summary>
-public interface IConfigureHandlers
-{
-    /// <summary>Applies the registration.</summary>
-    void Apply(HandlerRegistry registry);
-}
-
 /// <summary>Applies a subject mapping to the shared registry.</summary>
 public interface IConfigureMessageTypes
 {
     /// <summary>Applies the mapping.</summary>
     void Apply(MessageTypeRegistry registry);
-}
-
-internal sealed class ConfigureHandlers : IConfigureHandlers
-{
-    private readonly Action<HandlerRegistry> _configure;
-
-    public ConfigureHandlers(Action<HandlerRegistry> configure) => _configure = configure;
-
-    public void Apply(HandlerRegistry registry) => _configure(registry);
 }
 
 internal sealed class ConfigureMessageTypes : IConfigureMessageTypes

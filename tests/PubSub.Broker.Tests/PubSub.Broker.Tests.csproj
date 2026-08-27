@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/PubSub.Broker.Core/PubSub.Broker.Core.csproj" />
     <ProjectReference Include="../../src/PubSub.Broker.Redis/PubSub.Broker.Redis.csproj" />
+    <ProjectReference Include="../../src/PubSub.Outbox/PubSub.Outbox.csproj" />
   </ItemGroup>
 
   <ItemGroup>

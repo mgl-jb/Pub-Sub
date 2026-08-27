@@ -25,6 +25,17 @@ public sealed class PubSubClientOptions
 /// <summary>How one subscription's processor pumps messages.</summary>
 public sealed class MessageProcessorOptions
 {
+    /// <summary>
+    /// The handlers this processor dispatches to.
+    /// </summary>
+    /// <remarks>
+    /// Per-processor rather than per-process, because one worker commonly consumes several
+    /// subscriptions of the same topic and needs a different handler for each — a shipping
+    /// subscription and a high-value subscription both carry <c>OrderPlaced</c>, and a single
+    /// shared registry could only route one of them.
+    /// </remarks>
+    public HandlerRegistry Handlers { get; } = new();
+
     /// <summary>The topic to consume from.</summary>
     public required string Topic { get; set; }
 
@@ -77,6 +88,9 @@ public sealed class MessageProcessorOptions
 /// <summary>How a session processor pumps ordered sessions.</summary>
 public sealed class SessionProcessorOptions
 {
+    /// <summary>The handlers this processor dispatches to. See <see cref="MessageProcessorOptions.Handlers"/>.</summary>
+    public HandlerRegistry Handlers { get; } = new();
+
     /// <summary>The topic to consume from.</summary>
     public required string Topic { get; set; }
 

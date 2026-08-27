@@ -35,10 +35,30 @@ internal sealed class HandlerRegistration
     /// <summary>Creates a registration bound to a payload type and handler implementation.</summary>
     public static HandlerRegistration Create<TMessage, THandler>(string subject)
         where THandler : class, IMessageHandler<TMessage>
+        => Create<TMessage>(
+            subject,
+            static services => ActivatorUtilities.GetServiceOrCreateInstance<THandler>(services));
+
+    /// <summary>
+    /// Creates a registration that resolves <see cref="IMessageHandler{TMessage}"/> from the
+    /// message's scope.
+    /// </summary>
+    /// <remarks>
+    /// Use this when the handler is registered behind a decorator — the inbox's idempotent wrapper
+    /// being the common case — so that the decorator is what actually runs.
+    /// </remarks>
+    public static HandlerRegistration CreateResolved<TMessage>(string subject)
+        => Create<TMessage>(
+            subject,
+            static services => services.GetRequiredService<IMessageHandler<TMessage>>());
+
+    private static HandlerRegistration Create<TMessage>(
+        string subject,
+        Func<IServiceProvider, IMessageHandler<TMessage>> resolve)
     {
         return new HandlerRegistration(subject, typeof(TMessage), InvokeAsync);
 
-        static async Task InvokeAsync(
+        async Task InvokeAsync(
             IServiceProvider services,
             DispatchContext dispatch,
             CancellationToken cancellationToken)
@@ -77,8 +97,7 @@ internal sealed class HandlerRegistration
                 dispatch.Subscription,
                 dispatch.DeliveryId);
 
-            IMessageHandler<TMessage> handler =
-                ActivatorUtilities.GetServiceOrCreateInstance<THandler>(services);
+            IMessageHandler<TMessage> handler = resolve(services);
 
             await handler.HandleAsync(context, cancellationToken);
 
@@ -128,6 +147,17 @@ public sealed class HandlerRegistry
     {
         string resolved = subject ?? typeof(TMessage).Name;
         _bySubject[resolved] = HandlerRegistration.Create<TMessage, THandler>(resolved);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a handler resolved from dependency injection as
+    /// <see cref="IMessageHandler{TMessage}"/>, so a decorator around it is honoured.
+    /// </summary>
+    public HandlerRegistry AddResolved<TMessage>(string? subject = null)
+    {
+        string resolved = subject ?? typeof(TMessage).Name;
+        _bySubject[resolved] = HandlerRegistration.CreateResolved<TMessage>(resolved);
         return this;
     }
 

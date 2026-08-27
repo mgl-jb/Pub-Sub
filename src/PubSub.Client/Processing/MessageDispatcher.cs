@@ -18,18 +18,15 @@ namespace PubSub.Client;
 internal sealed class MessageDispatcher
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly HandlerRegistry _handlers;
     private readonly BrokerHttpClient _broker;
     private readonly ILogger<MessageDispatcher> _logger;
 
     public MessageDispatcher(
         IServiceScopeFactory scopeFactory,
-        HandlerRegistry handlers,
         BrokerHttpClient broker,
         ILogger<MessageDispatcher> logger)
     {
         _scopeFactory = scopeFactory;
-        _handlers = handlers;
         _broker = broker;
         _logger = logger;
     }
@@ -38,6 +35,7 @@ internal sealed class MessageDispatcher
     public async Task DispatchAsync(
         string topic,
         string subscription,
+        HandlerRegistry handlers,
         WireReceivedMessage received,
         bool autoComplete,
         CancellationToken cancellationToken)
@@ -66,7 +64,7 @@ internal sealed class MessageDispatcher
             new KeyValuePair<string, object?>("messaging.destination.name", topic),
             new KeyValuePair<string, object?>("messaging.pubsub.subscription", subscription));
 
-        HandlerRegistration? registration = _handlers.Resolve(envelope.Subject);
+        HandlerRegistration? registration = handlers.Resolve(envelope.Subject);
 
         if (registration is null)
         {

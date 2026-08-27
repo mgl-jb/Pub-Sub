@@ -173,6 +173,7 @@ public sealed class SessionProcessor : IAsyncDisposable
                     await _dispatcher.DispatchAsync(
                         _options.Topic,
                         _options.Subscription,
+                        _options.Handlers,
                         message,
                         _options.AutoComplete,
                         cancellationToken);
