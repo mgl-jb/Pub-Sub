@@ -39,6 +39,17 @@ AddAuthentication(builder);
 
 WebApplication app = builder.Build();
 
+// The broker owns its schema, so it applies its own migrations on startup: a fresh database
+// otherwise leaves the service running but unable to answer anything. Set
+// Broker:ApplyMigrationsOnStartup to false where a deployment pipeline owns migrations instead,
+// which also lets the runtime identity drop its DDL permission.
+if (builder.Configuration.GetValue("Broker:ApplyMigrationsOnStartup", defaultValue: true))
+{
+    using IServiceScope migrationScope = app.Services.CreateScope();
+    BrokerDbContext database = migrationScope.ServiceProvider.GetRequiredService<BrokerDbContext>();
+    await database.Database.MigrateAsync();
+}
+
 // Every broker error already carries the right status code and a message written for the caller;
 // this turns them into Problem Details rather than letting them surface as an opaque 500.
 app.UseExceptionHandler(handler => handler.Run(WriteProblemAsync));

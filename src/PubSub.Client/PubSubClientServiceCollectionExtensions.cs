@@ -97,7 +97,11 @@ public static class PubSubClientServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        services.AddHostedService(provider =>
+        // Registered as a plain IHostedService rather than through AddHostedService, which uses
+        // TryAddEnumerable and therefore deduplicates by implementation type. Every processor
+        // shares one host type, so that would silently discard all but the first — a worker
+        // consuming four subscriptions would start one and appear simply to hang on the rest.
+        services.AddSingleton<IHostedService>(provider =>
         {
             MessageProcessorOptions options = new() { Topic = string.Empty, Subscription = string.Empty };
             configure(options);
@@ -135,7 +139,8 @@ public static class PubSubClientServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        services.AddHostedService(provider =>
+        // A plain IHostedService for the same reason as AddMessageProcessor above.
+        services.AddSingleton<IHostedService>(provider =>
         {
             SessionProcessorOptions options = new() { Topic = string.Empty, Subscription = string.Empty };
             configure(options);

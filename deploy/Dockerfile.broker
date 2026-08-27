@@ -27,6 +27,12 @@ RUN dotnet publish src/PubSub.Broker.Api/PubSub.Broker.Api.csproj -c Release -o 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
+# The ASP.NET runtime image ships neither curl nor wget, so a container healthcheck has nothing
+# to probe with. curl is added deliberately for that.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # A non-root user by default: nothing here needs root, and a container that runs as it is one
 # escalation away from being a much bigger problem.
 RUN useradd --uid 64198 --create-home --shell /usr/sbin/nologin appuser
