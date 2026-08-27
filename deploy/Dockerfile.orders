@@ -1,0 +1,42 @@
+# Restore is a separate layer keyed on the project files alone, so a source-only change does not
+# re-download every package.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# .editorconfig carries analyser severities, including the suppressions for EF's generated
+# migrations. Omitting it makes the container build fail on code that compiles locally.
+COPY Directory.Build.props Directory.Packages.props global.json .editorconfig ./
+COPY src/PubSub.Abstractions/*.csproj src/PubSub.Abstractions/
+COPY src/PubSub.Filters/*.csproj src/PubSub.Filters/
+COPY src/PubSub.Broker.Core/*.csproj src/PubSub.Broker.Core/
+COPY src/PubSub.Broker.Redis/*.csproj src/PubSub.Broker.Redis/
+COPY src/PubSub.Broker.Api/*.csproj src/PubSub.Broker.Api/
+COPY src/PubSub.Client/*.csproj src/PubSub.Client/
+COPY src/PubSub.Outbox/*.csproj src/PubSub.Outbox/
+COPY samples/Sample.Orders.Api/*.csproj samples/Sample.Orders.Api/
+COPY samples/Sample.Shipping.Worker/*.csproj samples/Sample.Shipping.Worker/
+COPY samples/Sample.Admin.Cli/*.csproj samples/Sample.Admin.Cli/
+
+RUN dotnet restore samples/Sample.Orders.Api/Sample.Orders.Api.csproj
+
+COPY src/ src/
+COPY samples/ samples/
+
+RUN dotnet publish samples/Sample.Orders.Api/Sample.Orders.Api.csproj -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# A non-root user by default: nothing here needs root, and a container that runs as it is one
+# escalation away from being a much bigger problem.
+RUN useradd --uid 64198 --create-home --shell /usr/sbin/nologin appuser
+USER 64198
+
+COPY --from=build --chown=64198:64198 /app .
+
+ENV DOTNET_gcServer=1 \
+    ASPNETCORE_HTTP_PORTS=8080
+
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "Sample.Orders.Api.dll"]

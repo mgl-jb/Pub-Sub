@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A superseded run on the same branch is wasted CI time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        # Warnings are errors in Directory.Build.props, so this fails on any analyser finding.
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Verify formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Unit tests
+        run: dotnet test --project tests/PubSub.Filters.Tests/PubSub.Filters.Tests.csproj --configuration Release --no-build
+
+      # The integration and end-to-end suites start SQL Server through Testcontainers, so they
+      # need a working Docker daemon rather than a service container: each test class manages its
+      # own database lifetime.
+      - name: Integration tests
+        run: dotnet test --project tests/PubSub.Broker.Tests/PubSub.Broker.Tests.csproj --configuration Release --no-build
+
+      - name: End-to-end tests
+        run: dotnet test --project tests/PubSub.E2E.Tests/PubSub.E2E.Tests.csproj --configuration Release --no-build
+
+  infrastructure:
+    name: Validate infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Bicep CLI
+        run: |
+          curl -sSL -o bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/bicep
+          bicep --version
+
+      - name: Build templates
+        # Bicep warnings are not failures by default, so they are promoted here: an unused
+        # parameter or a deprecated API version should not reach a deployment unnoticed.
+        run: |
+          set -euo pipefail
+          output=$(bicep build infra/main.bicep --stdout 2>&1 >/dev/null)
+          if [ -n "$output" ]; then
+            echo "$output"
+            echo "::error::Bicep reported warnings."
+            exit 1
+          fi
+          echo "Templates compiled with no warnings."
+
+      - name: Build parameter files
+        run: |
+          for file in infra/*.bicepparam; do
+            echo "Building $file"
+            bicep build-params "$file" --stdout > /dev/null
+          done
+
+  containers:
+    name: Build container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: broker
+            dockerfile: deploy/Dockerfile.broker
+          - name: orders
+            dockerfile: deploy/Dockerfile.orders
+          - name: shipping
+            dockerfile: deploy/Dockerfile.shipping
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          # Building without pushing: this job proves the image builds, and publishing belongs to
+          # a release workflow with registry credentials.
+          push: false
+          tags: pubsub-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
