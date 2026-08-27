@@ -54,6 +54,36 @@ public static class MessagePropertySerializer
         return result;
     }
 
+    /// <summary>
+    /// Converts a value that may still be a <see cref="JsonElement"/> into a plain CLR value.
+    /// </summary>
+    /// <remarks>
+    /// Properties arriving over HTTP deserialize into <see cref="JsonElement"/> rather than
+    /// primitives. A filter comparing one of those against a number yields UNKNOWN — the message
+    /// silently fails to route — so anything entering the broker from the wire is normalised here,
+    /// using the same rules as the stored form.
+    /// </remarks>
+    public static object? Normalize(object? value) =>
+        value is JsonElement element ? ReadValue(element) : value;
+
+    /// <summary>Normalizes every value in a property dictionary.</summary>
+    public static Dictionary<string, object?> NormalizeAll(IDictionary<string, object?>? properties)
+    {
+        Dictionary<string, object?> result = new(StringComparer.Ordinal);
+
+        if (properties is null)
+        {
+            return result;
+        }
+
+        foreach (KeyValuePair<string, object?> property in properties)
+        {
+            result[property.Key] = Normalize(property.Value);
+        }
+
+        return result;
+    }
+
     private static object? ReadValue(JsonElement element) => element.ValueKind switch
     {
         JsonValueKind.String => element.GetString(),

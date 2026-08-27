@@ -138,6 +138,34 @@ public sealed partial class BrokerStore
         return [.. deliveries.Select(d => ToReceivedMessage(d, lockToken, lockedUntil))];
     }
 
+    /// <summary>
+    /// Cancels a scheduled message that has not yet become visible.
+    /// </summary>
+    /// <remarks>
+    /// Only deliveries still waiting for their scheduled time are removed. Once a message has
+    /// become visible it may already be in a receiver's hands, so cancelling it would be a
+    /// retraction the broker cannot honour — the caller is told it lost the race instead.
+    /// </remarks>
+    /// <returns><c>true</c> when at least one pending delivery was cancelled.</returns>
+    public async Task<bool> CancelScheduledAsync(
+        string topicName,
+        long sequenceNumber,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(topicName);
+
+        DateTimeOffset now = _time.GetUtcNow();
+
+        int cancelled = await _context.Deliveries
+            .Where(d => d.SequenceNumber == sequenceNumber
+                        && d.Message!.Topic!.Name == topicName
+                        && d.State == MessageState.Available
+                        && d.AvailableAt > now)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return cancelled > 0;
+    }
+
     private static ReceivedMessage ToReceivedMessage(
         DeliveryEntity delivery,
         Guid lockToken,

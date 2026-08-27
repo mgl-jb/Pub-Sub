@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PubSub.Abstractions;
@@ -94,19 +95,34 @@ public sealed partial class BrokerStore
         List<PublishResult> results = new(messages.Count);
         HashSet<int> notified = [];
 
-        await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
-            await _context.Database.BeginTransactionAsync(cancellationToken);
+        // The connection is configured to retry transient faults, and EF refuses to combine that
+        // with a hand-rolled transaction: a retry that resumed mid-transaction could commit half a
+        // batch. Running the whole transaction inside the execution strategy makes the batch the
+        // retriable unit, which is what "the batch is atomic" actually requires.
+        IExecutionStrategy strategy = _context.Database.CreateExecutionStrategy();
 
-        foreach (MessageEnvelope message in messages)
+        await strategy.ExecuteAsync(async () =>
         {
-            PublishResult result =
-                await PublishOneAsync(topic, subscriptions, message, now, notified, cancellationToken);
+            // The strategy re-invokes this delegate on a retry, so anything accumulated by a
+            // failed attempt has to be discarded rather than appended to.
+            results.Clear();
+            notified.Clear();
+            _context.ChangeTracker.Clear();
 
-            results.Add(result);
-        }
+            await using IDbContextTransaction transaction =
+                await _context.Database.BeginTransactionAsync(cancellationToken);
 
-        await _context.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+            foreach (MessageEnvelope message in messages)
+            {
+                PublishResult result = await PublishOneAsync(
+                    topic, subscriptions, message, now, notified, cancellationToken);
+
+                results.Add(result);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        });
 
         // Signalling only after the commit is deliberate: a receiver woken before the rows are
         // visible would find nothing and go back to sleep, turning a fast path into a slow one.

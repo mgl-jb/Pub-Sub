@@ -1,3 +1,4 @@
+using System.Globalization;
 using PubSub.Abstractions;
 
 namespace PubSub.Filters.Tests;
@@ -55,7 +56,8 @@ public class EvaluationTests
     public void Division_produces_a_fraction_even_from_integers()
     {
         MessageEnvelope message = MessageBuilder.Message();
-        Convert.ToDouble(ValueEvaluator.Build("7 / 2")(message)).ShouldBe(3.5, 1e-9);
+        Convert.ToDouble(ValueEvaluator.Build("7 / 2")(message), CultureInfo.InvariantCulture)
+            .ShouldBe(3.5, 1e-9);
     }
 
     [Fact]
