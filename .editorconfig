@@ -24,3 +24,11 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Test projects: underscored method names are the readable convention for test naming
+# ("Unknown_propagates_through_and_or_per_sql" beats a camel-cased run-on), so the general
+# naming rule is switched off here rather than fought.
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA1515.severity = none

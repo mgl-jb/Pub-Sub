@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Scoped to tests/ rather than conditioned on $(IsTestProject) in the root props file.
+    Directory.Build.props is imported before the project body, so a property the csproj sets
+    is not yet visible there and such a condition silently never matches.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      xunit v3 self-hosts on Microsoft.Testing.Platform rather than VSTest; global.json selects
+      that runner for `dotnet test`. Note that the platform forwards unrecognised arguments
+      straight to the test executable, so passing a VSTest-era flag such as the no-logo switch
+      fails with "Unknown option" and reports zero tests rather than an obvious error.
+    -->
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+  </PropertyGroup>
+
+</Project>

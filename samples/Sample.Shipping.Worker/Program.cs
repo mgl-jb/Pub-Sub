@@ -1,7 +1,4 @@
-using Sample.Shipping.Worker;
-
-var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddHostedService<Worker>();
-
-var host = builder.Build();
-host.Run();
+// Placeholder host. Replaced when the sample consumers land.
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+IHost host = builder.Build();
+await host.RunAsync();
