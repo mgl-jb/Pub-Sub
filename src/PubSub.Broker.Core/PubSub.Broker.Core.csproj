@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>PubSub.Broker.Core</RootNamespace>
+    <Description>Broker domain and storage: EF Core model, publish fan-out, peek-lock claim and settlement, sessions, and the background sweeper.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PubSub.Abstractions/PubSub.Abstractions.csproj" />
+    <ProjectReference Include="../PubSub.Filters/PubSub.Filters.csproj" />
+  </ItemGroup>
+
+</Project>

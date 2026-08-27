@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>PubSub.Abstractions</RootNamespace>
+    <Description>Core contracts for the PubSub messaging system: message envelope, publisher and handler interfaces, filters, and exceptions.</Description>
+  </PropertyGroup>
+
+</Project>

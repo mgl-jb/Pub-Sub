@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>PubSub.Filters</RootNamespace>
+    <Description>SQL-92-like subscription filter language: tokenizer, parser, AST, and compiled evaluator.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PubSub.Abstractions/PubSub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

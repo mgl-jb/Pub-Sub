@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Sample.Admin.Cli/Sample.Admin.Cli.csproj" />
+    <Project Path="samples/Sample.Orders.Api/Sample.Orders.Api.csproj" />
+    <Project Path="samples/Sample.Shipping.Worker/Sample.Shipping.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/PubSub.Abstractions/PubSub.Abstractions.csproj" />
+    <Project Path="src/PubSub.Broker.Api/PubSub.Broker.Api.csproj" />
+    <Project Path="src/PubSub.Broker.Core/PubSub.Broker.Core.csproj" />
+    <Project Path="src/PubSub.Broker.Redis/PubSub.Broker.Redis.csproj" />
+    <Project Path="src/PubSub.Client/PubSub.Client.csproj" />
+    <Project Path="src/PubSub.Filters/PubSub.Filters.csproj" />
+    <Project Path="src/PubSub.Outbox/PubSub.Outbox.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PubSub.Broker.Tests/PubSub.Broker.Tests.csproj" />
+    <Project Path="tests/PubSub.Client.Tests/PubSub.Client.Tests.csproj" />
+    <Project Path="tests/PubSub.E2E.Tests/PubSub.E2E.Tests.csproj" />
+    <Project Path="tests/PubSub.Filters.Tests/PubSub.Filters.Tests.csproj" />
+  </Folder>
+</Solution>
