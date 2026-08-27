@@ -126,22 +126,26 @@ public sealed partial class BrokerStore
         HashSet<int> notified,
         CancellationToken cancellationToken)
     {
+        // Any record for this id is fetched, expired or not. The unique index covers the whole
+        // table rather than only live records, so a lapsed record still occupies the key and must
+        // be reused rather than inserted alongside — otherwise a message id becomes permanently
+        // unpublishable once its window passes, until the sweeper happens to prune it.
+        DedupEntity? dedupRecord = null;
+
         if (topic.DuplicateDetectionEnabled)
         {
-            DedupEntity? existing = await _context.DedupEntries
-                .AsNoTracking()
+            dedupRecord = await _context.DedupEntries
                 .FirstOrDefaultAsync(
-                    d => d.TopicId == topic.Id
-                         && d.MessageId == message.MessageId
-                         && d.ExpiresAt > now,
+                    d => d.TopicId == topic.Id && d.MessageId == message.MessageId,
                     cancellationToken);
 
-            if (existing is not null)
+            if (dedupRecord is not null && dedupRecord.ExpiresAt > now)
             {
                 BrokerLog.DuplicateSuppressed(
-                    _logger, message.MessageId, topic.Name, existing.SequenceNumber);
+                    _logger, message.MessageId, topic.Name, dedupRecord.SequenceNumber);
 
-                return new PublishResult(existing.SequenceNumber, WasDuplicate: true, MatchedSubscriptions: 0);
+                return new PublishResult(
+                    dedupRecord.SequenceNumber, WasDuplicate: true, MatchedSubscriptions: 0);
             }
         }
 
@@ -179,14 +183,24 @@ public sealed partial class BrokerStore
 
         if (topic.DuplicateDetectionEnabled)
         {
-            _context.DedupEntries.Add(new DedupEntity
+            if (dedupRecord is null)
             {
-                TopicId = topic.Id,
-                MessageId = message.MessageId,
-                SequenceNumber = entity.SequenceNumber,
-                PublishedAt = now,
-                ExpiresAt = now.Add(topic.DuplicateDetectionWindow),
-            });
+                _context.DedupEntries.Add(new DedupEntity
+                {
+                    TopicId = topic.Id,
+                    MessageId = message.MessageId,
+                    SequenceNumber = entity.SequenceNumber,
+                    PublishedAt = now,
+                    ExpiresAt = now.Add(topic.DuplicateDetectionWindow),
+                });
+            }
+            else
+            {
+                // The previous window lapsed; this publish starts a new one.
+                dedupRecord.SequenceNumber = entity.SequenceNumber;
+                dedupRecord.PublishedAt = now;
+                dedupRecord.ExpiresAt = now.Add(topic.DuplicateDetectionWindow);
+            }
         }
 
         return new PublishResult(entity.SequenceNumber, WasDuplicate: false, MatchedSubscriptions: matched);

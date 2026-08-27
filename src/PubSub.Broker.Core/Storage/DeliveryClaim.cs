@@ -60,6 +60,14 @@ internal static class DeliveryClaim
             ? string.Empty
             : "AND d.SessionId = @sessionId";
 
+        // Live messages must not be handed out past their expiry, but a dead-lettered one is
+        // already terminal: its expiry is frequently the very reason it is here, so filtering on
+        // it would make TTL-expired messages permanently invisible — the opposite of what
+        // dead-lettering on expiry is for.
+        string expiryPredicate = fromDeadLetterQueue
+            ? string.Empty
+            : "AND d.ExpiresAt > @now";
+
         // A dead-letter read must not reset the message's delivery count or its dead-letter
         // reason, so only the lock columns are written in that case.
         string setClause = fromDeadLetterQueue
@@ -95,7 +103,7 @@ internal static class DeliveryClaim
                 WHERE  d.SubscriptionId = @subscriptionId
                   AND  d.State          = @claimFrom
                   AND  d.AvailableAt   <= @now
-                  AND  d.ExpiresAt      > @now
+                  {expiryPredicate}
                   {sessionPredicate}
                 ORDER BY d.SequenceNumber
             )
