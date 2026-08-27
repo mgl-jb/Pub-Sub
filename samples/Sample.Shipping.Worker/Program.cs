@@ -12,6 +12,7 @@ string connectionString = builder.Configuration.GetConnectionString("Shipping")
 
 builder.Services.AddDbContext<ShippingDbContext>(options => options.UseSqlServer(connectionString));
 
+builder.Services.AddSampleObservability("sample-shipping-worker");
 builder.Services.AddPubSubClient(builder.Configuration);
 builder.Services.AddPubSubOutboxOptions(builder.Configuration);
 builder.Services.AddInboxCleanup<ShippingDbContext>();

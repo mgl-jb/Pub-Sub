@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PubSub.Abstractions;
 using PubSub.Broker.Api;
 using PubSub.Broker.Core;
+using PubSub.Broker.Redis;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +15,13 @@ string connectionString = builder.Configuration.GetConnectionString("Broker")
 
 builder.Services.AddPubSubBrokerOptions(builder.Configuration);
 builder.Services.AddPubSubBroker(connectionString);
+
+// Registered before the broker's own defaults so the Redis implementations win where Redis is
+// configured, and the in-process ones remain in place where it is not.
+builder.Services.AddPubSubRedis(builder.Configuration);
 builder.Services.AddPubSubSweeper();
+
+builder.AddPubSubObservability();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

@@ -14,6 +14,7 @@ builder.Services.AddPubSubClient(builder.Configuration);
 builder.Services.AddPubSubOutboxOptions(builder.Configuration);
 builder.Services.AddPubSubOutbox<OrdersDbContext>();
 
+builder.Services.AddSampleObservability("sample-orders-api");
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddDbContextCheck<OrdersDbContext>("orders-database");
