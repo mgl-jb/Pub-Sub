@@ -12,7 +12,6 @@
     <!-- CS1591: missing XML comment. Documentation lives in docs/; public APIs that
          warrant prose have it, but we do not require a comment on every member. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
 </Project>
